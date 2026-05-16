@@ -1,0 +1,78 @@
+{
+  "entities": {
+    "Vehicle": {
+      "title": "Vehicle",
+      "description": "A vehicle available for rent",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "type": "string", "enum": ["car", "bike"] },
+        "name": { "type": "string" },
+        "model": { "type": "string" },
+        "year": { "type": "string" },
+        "capacity": { "type": "number" },
+        "fuelType": { "type": "string", "enum": ["petrol", "diesel", "ev"] },
+        "images": { "type": "array", "items": { "type": "string" } },
+        "status": { "type": "string", "enum": ["available", "maintenance", "on-road"] },
+        "pricingTiers": {
+          "type": "array",
+          "items": { "type": "object" }
+        },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["type", "name", "status"]
+    },
+    "Booking": {
+      "title": "Booking",
+      "description": "A customer booking request",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "vehicleId": { "type": "string" },
+        "customerName": { "type": "string" },
+        "customerPhone": { "type": "string" },
+        "customerAddress": { "type": "string" },
+        "aadhaarDoc": { "type": "string", "description": "Base64 or URL" },
+        "dlDoc": { "type": "string", "description": "Base64 or URL" },
+        "status": { "type": "string", "enum": ["pending", "approved", "completed", "cancelled"] },
+        "selectedTier": { "type": "object" },
+        "totalAmount": { "type": "number" },
+        "startTime": { "type": "string", "format": "date-time" },
+        "expectedReturnTime": { "type": "string", "format": "date-time" },
+        "actualReturnTime": { "type": "string", "format": "date-time" },
+        "startKm": { "type": "number" },
+        "endKm": { "type": "number" },
+        "extraKm": { "type": "number" },
+        "extraCharges": { "type": "number" },
+        "finalAmount": { "type": "number" },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["vehicleId", "customerName", "customerPhone", "status", "userId"]
+    },
+    "Admin": {
+      "title": "Admin",
+      "description": "Admin user tracking",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" }
+      }
+    }
+  },
+  "firestore": {
+    "vehicles": {
+      "schema": { "$ref": "#/entities/Vehicle" },
+      "description": "Stores vehicle details."
+    },
+    "bookings": {
+      "schema": { "$ref": "#/entities/Booking" },
+      "description": "Stores booking requests."
+    },
+    "admins": {
+      "schema": { "$ref": "#/entities/Admin" },
+      "description": "Stores admin user UIDs."
+    }
+  }
+}
