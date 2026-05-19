@@ -16,6 +16,7 @@ export interface Vehicle {
   year: string;
   capacity?: number;
   description?: string;
+  registrationNumber?: string;
   fuelType: 'petrol' | 'diesel' | 'cng' | 'ev' | '';
   images: string[];
   status: 'available' | 'maintenance' | 'on-road';

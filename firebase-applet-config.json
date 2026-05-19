@@ -1,9 +1,9 @@
 {
-  "apiKey": "AIzaSyCMidb-EXL8XN235QvvbkRFSvuiW3juexE",
-  "authDomain": "eat-and-fly-ce91d.firebaseapp.com",
-  "projectId": "eat-and-fly-ce91d",
-  "storageBucket": "eat-and-fly-ce91d.firebasestorage.app",
-  "messagingSenderId": "245393639649",
-  "appId": "1:245393639649:web:9641961479bf62f8424fa0",
-  "firestoreDatabaseId": "(default)"
+  "projectId": "amma-travels",
+  "appId": "1:539765447594:web:e30ffb6b345816318729d3",
+  "apiKey": "AIzaSyAJeNddlAOu6tyyO13eXd6LoHfrW766Icw",
+  "authDomain": "amma-travels.firebaseapp.com",
+  "storageBucket": "amma-travels.firebasestorage.app",
+  "messagingSenderId": "539765447594",
+  "measurementId": ""
 }

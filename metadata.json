@@ -2,5 +2,5 @@
   "name": "Amma Travels",
   "description": "Vehicle rental platform for Amma Travels in Kakinada, featuring mobile-first customer booking and a full admin control portal.",
   "requestFramePermissions": ["camera"],
-  "majorCapabilities": []
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

@@ -10,14 +10,14 @@
   },
   "dependencies": {
     "@google/genai": "^1.17.0",
-    "firebase": "^10.0.0",
-    "lucide-react": "^0.300.0",
-    "motion": "^11.0.0",
-    "next": "^15.0.0",
+    "clsx": "^2.0.0",
+    "date-fns": "^3.0.0",
+    "firebase": "^11.1.0",
+    "lucide-react": "^0.460.0",
+    "motion": "^11.11.17",
+    "next": "^15.1.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "date-fns": "^3.0.0",
-    "clsx": "^2.0.0",
     "tailwind-merge": "^2.0.0"
   },
   "devDependencies": {

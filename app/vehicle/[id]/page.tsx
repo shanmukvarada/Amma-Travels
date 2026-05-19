@@ -15,7 +15,9 @@ import {
   storage,
   handleFirestoreError,
   OperationType,
+  signInWithGoogle,
 } from "@/lib/firebase";
+import { onAuthStateChanged, User } from "firebase/auth";
 import { Vehicle, PricingTier } from "@/lib/types";
 import { seedVehicles } from "@/lib/seedData";
 import { useRouter } from "next/navigation";
@@ -27,9 +29,15 @@ import {
   Camera,
   ShieldCheck,
   Info,
+  ChevronLeft,
+  ChevronRight,
+  ImageOff,
+  LogIn,
 } from "lucide-react";
 import Link from "next/link";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
+import Image from "next/image";
+import LoadingIndicator from "@/components/LoadingIndicator";
 
 export default function VehicleDetailPage({
   params,
@@ -41,6 +49,14 @@ export default function VehicleDetailPage({
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedTier, setSelectedTier] = useState<PricingTier | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    const unsubAuth = onAuthStateChanged(auth, (curr) => {
+      setUser(curr);
+    });
+    return () => unsubAuth();
+  }, []);
 
   // Form State
   const [name, setName] = useState("");
@@ -49,6 +65,27 @@ export default function VehicleDetailPage({
   const [aadhaarFile, setAadhaarFile] = useState<File | null>(null);
   const [dlFile, setDlFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [imgError, setImgError] = useState<Record<number, boolean>>({});
+
+  const filteredImages = (vehicle?.images || []).filter(url => 
+    url && !url.includes("photo-1534645229-ea21be3e46c9")
+  );
+
+  const nextImage = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (filteredImages.length > 0) {
+      setCurrentImageIndex((prev) => (prev + 1) % filteredImages.length);
+    }
+  };
+
+  const prevImage = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (filteredImages.length > 0) {
+      setCurrentImageIndex((prev) => (prev - 1 + filteredImages.length) % filteredImages.length);
+    }
+  };
 
   useEffect(() => {
     const fetchVehicle = async () => {
@@ -102,36 +139,28 @@ export default function VehicleDetailPage({
     e.preventDefault();
     if (!vehicle || !selectedTier || !aadhaarFile || !dlFile) return;
 
+    if (!user) {
+      try {
+        await signInWithGoogle();
+        return;
+      } catch (authErr) {
+        console.error("Sign in failed:", authErr);
+        return;
+      }
+    }
+
     setSubmitting(true);
     try {
-      if (!auth.currentUser) {
-        try {
-          const { signInAnonymously } = await import("firebase/auth");
-          await signInAnonymously(auth);
-        } catch (authError: any) {
-          if (authError.code === "auth/admin-restricted-operation") {
-            alert(
-              "Error: Anonymous Authentication is not enabled in this Firebase project. To fix this, please go to your Firebase Console -> Authentication -> Sign-in Method, and enable 'Anonymous'.",
-            );
-            setSubmitting(false);
-            return;
-          }
-          throw authError;
-        }
-      }
-
-      if (!auth.currentUser) throw new Error("Failed to sign in.");
-
       const aadhaarRef = ref(
         storage,
-        `documents/${auth.currentUser.uid}/${Date.now()}_aadhaar`,
+        `documents/${user.uid}/${Date.now()}_aadhaar`,
       );
       await uploadBytes(aadhaarRef, aadhaarFile);
       const aadhaarUrl = await getDownloadURL(aadhaarRef);
 
       const dlRef = ref(
         storage,
-        `documents/${auth.currentUser.uid}/${Date.now()}_dl`,
+        `documents/${user.uid}/${Date.now()}_dl`,
       );
       await uploadBytes(dlRef, dlFile);
       const dlUrl = await getDownloadURL(dlRef);
@@ -144,7 +173,8 @@ export default function VehicleDetailPage({
         aadhaarDoc: aadhaarUrl,
         dlDoc: dlUrl,
         status: "pending",
-        userId: auth.currentUser.uid,
+        userId: user.uid,
+        userEmail: user.email,
         selectedTier,
         totalAmount: selectedTier.price,
         startKm: 0,
@@ -164,10 +194,10 @@ export default function VehicleDetailPage({
     }
   };
 
-  if (loading)
+  if (loading && !vehicle)
     return (
-      <div className="min-h-screen flex items-center justify-center bg-neutral-50">
-        <div className="w-10 h-10 border-4 border-red-600 border-t-transparent rounded-full animate-spin shadow-lg" />
+      <div className="min-h-screen bg-neutral-50 flex items-center justify-center">
+        <LoadingIndicator isLoading={true} />
       </div>
     );
 
@@ -199,28 +229,60 @@ export default function VehicleDetailPage({
           className="bg-white lg:mt-6 lg:rounded-3xl shadow-sm border-x lg:border border-neutral-200 overflow-hidden mb-6"
         >
           <div className="w-full aspect-[4/3] md:aspect-[21/9] bg-neutral-100 relative overflow-hidden group">
-            {vehicle.images && vehicle.images.length > 0 ? (
-              <div className="flex w-full h-full overflow-x-auto snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-                {vehicle.images.map((img, i) => (
-                  <div key={i} className="min-w-full h-full snap-center relative">
-                    <img
-                      src={img}
-                      alt={`${vehicle.name} - ${i + 1}`}
+            {filteredImages.length > 0 && !imgError[currentImageIndex] ? (
+              <div className="relative w-full h-full">
+                <AnimatePresence initial={false} mode="wait">
+                  <motion.div
+                    key={currentImageIndex}
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                    transition={{ duration: 0.3 }}
+                    className="absolute inset-0 w-full h-full"
+                  >
+                    <Image
+                      src={filteredImages[currentImageIndex]}
+                      alt={`${vehicle.name} - ${currentImageIndex + 1}`}
+                      fill
                       className="w-full h-full object-cover"
+                      referrerPolicy="no-referrer"
+                      onError={() => setImgError(prev => ({ ...prev, [currentImageIndex]: true }))}
                     />
-                  </div>
-                ))}
-                {vehicle.images.length > 1 && (
+                  </motion.div>
+                </AnimatePresence>
+
+                {/* Navigation Buttons */}
+                {filteredImages.length > 1 && (
+                  <>
+                    <button 
+                      onClick={prevImage}
+                      className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/30 backdrop-blur-md text-white flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:bg-black/50 z-20 shadow-lg"
+                    >
+                      <ChevronLeft size={20} />
+                    </button>
+                    <button 
+                      onClick={nextImage}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/30 backdrop-blur-md text-white flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:bg-black/50 z-20 shadow-lg"
+                    >
+                      <ChevronRight size={20} />
+                    </button>
+                  </>
+                )}
+
+                {filteredImages.length > 1 && (
                   <div className="absolute bottom-16 left-0 right-0 flex justify-center gap-1.5 z-10 pointer-events-none">
-                     {vehicle.images.map((_, i) => (
-                       <div key={i} className="w-1.5 h-1.5 rounded-full bg-white/70 shadow-sm"></div>
+                     {filteredImages.map((_, i) => (
+                       <div key={i} className={`h-1.5 rounded-full transition-all duration-300 shadow-sm ${i === currentImageIndex ? 'w-4 bg-red-600' : 'w-1.5 bg-white/70'}`}></div>
                      ))}
                   </div>
                 )}
               </div>
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-neutral-300">
-                No Image Available
+              <div className="w-full h-full flex flex-col items-center justify-center text-neutral-300 bg-neutral-50 gap-2">
+                <ImageOff size={48} opacity={0.5} />
+                <span className="text-xs font-black uppercase opacity-40">
+                  {vehicle.images && vehicle.images.length > 0 ? "Image Failed to Load" : "No Image Available"}
+                </span>
               </div>
             )}
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
@@ -477,13 +539,22 @@ export default function VehicleDetailPage({
             <button
               type="submit"
               form="booking-form"
-              disabled={submitting || !selectedTier}
-              className="flex-1 sm:flex-none sm:w-[240px] bg-red-600 text-white font-bold py-4 px-6 rounded-2xl shadow-lg shadow-red-600/20 hover:bg-red-700 hover:shadow-red-600/40 active:scale-[0.98] transition-all flex justify-center items-center gap-2 disabled:bg-neutral-300 disabled:shadow-none disabled:active:scale-100"
+              disabled={submitting || (user && !selectedTier)}
+              className={`flex-1 sm:flex-none sm:w-[280px] font-bold py-4 px-6 rounded-2xl shadow-lg transition-all flex justify-center items-center gap-2 disabled:bg-neutral-300 disabled:shadow-none disabled:active:scale-100 ${
+                user 
+                  ? "bg-red-600 text-white shadow-red-600/20 hover:bg-red-700 hover:shadow-red-600/40 active:scale-[0.98]" 
+                  : "bg-black text-white hover:bg-red-600 active:scale-[0.98]"
+              }`}
             >
               {submitting ? (
                 <>
                   <div className="w-5 h-5 border-[3px] border-white/30 border-t-white rounded-full animate-spin"></div>
                   Processing...
+                </>
+              ) : !user ? (
+                <>
+                  <LogIn size={18} />
+                  Sign in with Google to Book
                 </>
               ) : (
                 "Send Request"
@@ -492,6 +563,8 @@ export default function VehicleDetailPage({
           </div>
         </div>
       )}
+      {/* Loading Indicator */}
+      <LoadingIndicator isLoading={loading || submitting} />
     </div>
   );
 }

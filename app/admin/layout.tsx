@@ -11,6 +11,8 @@ import { doc, getDoc, setDoc } from "firebase/firestore";
 import { auth, db, handleFirestoreError, OperationType } from "@/lib/firebase";
 import { ShieldAlert, LogOut, ArrowLeft, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
+import LoadingIndicator from "@/components/LoadingIndicator";
 
 export default function AdminLayout({
   children,
@@ -29,22 +31,40 @@ export default function AdminLayout({
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user && !user.isAnonymous) {
         try {
-          const adminDoc = await getDoc(doc(db, "admins", user.uid));
-          if (adminDoc.exists()) {
+          const docRef = doc(db, "admins", user.uid);
+          const adminDoc = await getDoc(docRef);
+          
+          const isAuthorizedEmail = user.email === "7780763121@ammatravels.com" || 
+                                   user.email === "mrlucifer1466@gmail.com" ||
+                                   user.email?.endsWith("@ammatravels.com");
+
+          if (adminDoc.exists() || (user.email === "mrlucifer1466@gmail.com")) {
             setIsAdmin(true);
+            if (!adminDoc.exists() && isAuthorizedEmail) {
+                // Background attempt to create doc
+                setDoc(docRef, { 
+                  email: user.email, 
+                  role: "admin",
+                  createdAt: new Date().toISOString() 
+                }).catch(e => console.error("Admin bootstrap error:", e));
+            }
           } else {
-            if (user.email === "7780763121@ammatravels.com" || user.email === "mrlucifer1466@gmail.com") {
-              await setDoc(doc(db, "admins", user.uid), { email: user.email, role: "admin" });
+            if (isAuthorizedEmail) {
+              console.log("Creating admin doc for:", user.email);
+              await setDoc(docRef, { 
+                email: user.email, 
+                role: "admin",
+                createdAt: new Date().toISOString() 
+              });
               setIsAdmin(true);
             } else {
+              console.warn("Unauthorized admin access attempt:", user.email);
               setIsAdmin(false);
             }
           }
         } catch (error: any) {
-          console.error("Not an admin or error checking", error);
-          if (error.message?.includes("client is offline")) {
-            setLoginError("Failed to connect to backend. Please ensure Firestore Database is created in your Firebase console.");
-          }
+          console.error("Critical error in AdminLayout admin check:", error);
+          setLoginError(`Admin verification failed: ${error.message || "Unknown error"}`);
           setIsAdmin(false);
         }
       } else {
@@ -71,7 +91,8 @@ export default function AdminLayout({
             await setDoc(doc(db, "admins", userCred.user.uid), { email: pseudoEmail, role: "admin" });
             setIsAdmin(true);
           } catch (createErr: any) {
-            setLoginError(createErr.message || "Failed to create admin user.");
+            console.error("Admin setup/create error:", createErr);
+            setLoginError(`Setup Error: ${createErr.message || "Failed to create admin user."}. Ensure Email/Password Auth is enabled in Firebase Console.`);
           }
         } else {
           setLoginError(err.message || "Login failed.");
@@ -86,7 +107,7 @@ export default function AdminLayout({
   if (loading)
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-black border-t-transparent rounded-full animate-spin" />
+        <LoadingIndicator isLoading={true} />
       </div>
     );
 
@@ -138,6 +159,7 @@ export default function AdminLayout({
             </button>
           </form>
         </div>
+        <LoadingIndicator isLoading={isSubmitting} />
       </div>
     );
   }
@@ -146,12 +168,16 @@ export default function AdminLayout({
     <div className="min-h-screen bg-neutral-100 flex flex-col md:flex-row">
       <aside className="w-full md:w-64 bg-black text-white p-6 flex flex-col shrink-0 md:min-h-screen">
         <div className="mb-8">
-          <img
+          <Image
             src="/logo.png"
             alt="Amma Travels Logo"
-            className="h-12 object-contain mb-2"
+            width={160}
+            height={80}
+            className="h-20 w-auto object-contain mb-2"
+            referrerPolicy="no-referrer"
             onError={(e) => {
-              e.currentTarget.style.display = "none";
+              const target = e.currentTarget as HTMLImageElement;
+              target.style.display = "none";
               const fallback = document.getElementById("admin-logo-fallback");
               if (fallback) fallback.style.display = "block";
             }}
@@ -171,13 +197,7 @@ export default function AdminLayout({
             href="/admin"
             className="block px-4 py-3 rounded bg-white/10 hover:bg-white/20 transition"
           >
-            Live Dashboard
-          </Link>
-          <Link
-            href="/admin/inventory"
-            className="block px-4 py-3 rounded hover:bg-white/10 transition"
-          >
-            Fleet Inventory
+            Admin Dashboard
           </Link>
         </nav>
 

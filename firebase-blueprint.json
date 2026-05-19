@@ -11,7 +11,9 @@
         "model": { "type": "string" },
         "year": { "type": "string" },
         "capacity": { "type": "number" },
-        "fuelType": { "type": "string", "enum": ["petrol", "diesel", "ev"] },
+        "fuelType": { "type": "string", "enum": ["petrol", "diesel", "ev", "cng", ""] },
+        "registrationNumber": { "type": "string" },
+        "description": { "type": "string" },
         "images": { "type": "array", "items": { "type": "string" } },
         "status": { "type": "string", "enum": ["available", "maintenance", "on-road"] },
         "pricingTiers": {

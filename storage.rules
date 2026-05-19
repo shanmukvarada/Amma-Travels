@@ -1,0 +1,26 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && 
+             (firestore.exists(/databases/(default)/documents/admins/$(request.auth.uid)) ||
+              request.auth.token.email == "mrlucifer1466@gmail.com" ||
+              request.auth.token.email == "7780763121@ammatravels.com" ||
+              request.auth.token.email.matches(".*@ammatravels[.]com"));
+    }
+
+    match /vehicles/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /documents/{userId}/{allPaths=**} {
+      allow read: if isAdmin() || request.auth.uid == userId;
+      allow write: if request.auth.uid == userId && request.resource.size < 10 * 1024 * 1024; // 10MB limit
+    }
+  }
+}

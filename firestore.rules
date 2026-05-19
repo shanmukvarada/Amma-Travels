@@ -10,15 +10,14 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+      return isSignedIn() && 
+             (exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+              request.auth.token.email == "mrlucifer1466@gmail.com" ||
+              request.auth.token.email == "7780763121@ammatravels.com");
     }
 
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-    function isValidId(id) {
-      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    function isVerifiedAdmin() {
+      return isAdmin() && request.auth.token.email_verified == true;
     }
 
     function incoming() {
@@ -29,7 +28,10 @@ service cloud.firestore {
       return resource.data;
     }
 
-    // --- Admin Entity Validation ---
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
     function isValidAdmin(data) {
       return data.keys().hasAll(['email']) &&
              data.email is string && data.email.size() <= 256 &&
@@ -40,46 +42,35 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow create: if isSignedIn() && adminId == request.auth.uid && 
                     (request.auth.token.email == "mrlucifer1466@gmail.com" || 
-                     request.auth.token.email.matches('.*@ammatravels\\.com')) && 
+                     request.auth.token.email == "7780763121@ammatravels.com" ||
+                     request.auth.token.email.matches(".*@ammatravels\\.com")) && 
                     isValidAdmin(incoming());
-      allow update, delete: if isAdmin() && adminId != request.auth.uid; // don't delete oneself
+      allow update, delete: if isAdmin() && adminId != request.auth.uid;
     }
 
     // --- Vehicle Entity Validation ---
     function isValidVehicle(data) {
       return data.keys().hasAll(['type', 'name', 'status', 'createdAt', 'updatedAt']) &&
              data.type in ['car', 'bike'] &&
-             data.name is string && data.name.size() <= 100 &&
-             data.get('model', '') is string && data.get('model', '').size() <= 100 &&
-             data.get('year', '') is string && data.get('year', '').size() <= 20 &&
-             data.get('description', '') is string && data.get('description', '').size() <= 5000 &&
-             data.get('capacity', 0) is number &&
-             data.get('fuelType', 'petrol') in ['petrol', 'diesel', 'cng', 'ev', ''] &&
-             data.get('images', []) is list && data.get('images', []).size() <= 10 &&
+             data.name is string && data.name.size() <= 200 &&
+             data.get('model', '') is string && data.get('model', '').size() <= 200 &&
+             data.get('registrationNumber', '') is string && data.get('registrationNumber', '').size() <= 100 &&
              data.status in ['available', 'maintenance', 'on-road'] &&
-             data.get('pricingTiers', []) is list && data.get('pricingTiers', []).size() <= 20 &&
              data.createdAt is timestamp &&
              data.updatedAt is timestamp;
     }
 
     match /vehicles/{vehicleId} {
-      allow read: if true; // Public read for vehicles
-      
-      allow create: if isAdmin() &&
-                    isValidId(vehicleId) &&
-                    isValidVehicle(incoming()) &&
+      allow read: if true;
+      allow create: if isAdmin() && 
+                    isValidVehicle(incoming()) && 
                     incoming().createdAt == request.time &&
                     incoming().updatedAt == request.time;
-      
-      allow update: if isAdmin() &&
-                    isValidId(vehicleId) &&
-                    isValidVehicle(incoming()) &&
-                    incoming().createdAt == existing().createdAt &&
-                    incoming().updatedAt == request.time && (
-                      incoming().diff(existing()).affectedKeys().hasOnly(['type', 'name', 'model', 'year', 'capacity', 'fuelType', 'images', 'status', 'description', 'pricingTiers', 'updatedAt'])
-                    );
-      
-      allow delete: if isAdmin() && isValidId(vehicleId);
+      allow update: if isAdmin() && 
+                    isValidVehicle(incoming()) && 
+                    incoming().updatedAt == request.time &&
+                    incoming().createdAt == existing().createdAt;
+      allow delete: if isAdmin();
     }
 
     // --- Booking Entity Validation ---
@@ -108,11 +99,10 @@ service cloud.firestore {
     }
 
     match /bookings/{bookingId} {
-      allow get: if isValidId(bookingId) && (isAdmin() || (isSignedIn() && existing().userId == request.auth.uid));
-      allow list: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow get: if isSignedIn() && (isAdmin() || (isSignedIn() && existing().userId == request.auth.uid));
+      allow list: if isSignedIn() && (isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid));
       
       allow create: if isSignedIn() &&
-                    isValidId(bookingId) &&
                     isValidBooking(incoming()) &&
                     incoming().userId == request.auth.uid &&
                     exists(/databases/$(database)/documents/vehicles/$(incoming().vehicleId)) &&
@@ -121,19 +111,17 @@ service cloud.firestore {
                     incoming().updatedAt == request.time;
       
       allow update: if isSignedIn() &&
-                    isValidId(bookingId) &&
-                    isValidBooking(incoming()) &&
-                    incoming().userId == existing().userId &&
-                    incoming().vehicleId == existing().vehicleId &&
-                    incoming().createdAt == existing().createdAt &&
-                    incoming().updatedAt == request.time &&
                     (
-                      (isAdmin()) ||
-                      (incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']) &&
+                      (isAdmin() && isValidBooking(incoming()) && incoming().updatedAt == request.time) ||
+                      (incoming().userId == existing().userId &&
+                       incoming().vehicleId == existing().vehicleId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt == request.time &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']) &&
                        existing().status == 'pending' && incoming().status == 'cancelled')
                     );
       
-      allow delete: if isAdmin() && isValidId(bookingId);
+      allow delete: if isAdmin();
     }
   }
 }
